@@ -1,0 +1,25 @@
+{
+    "startTheta":0,
+    "deltaTheta":1,
+    "endTheta":75,
+
+    "runLinearSim":false,
+    "runRadialSim":true,
+
+    "dryRun":false,
+    "beamPlots":true,
+    "hdBeamPlots":true,
+
+    "summaryPlotOnly":true,
+
+    "linearSourcesNumber":200,
+
+    "angularSourcesNumber": 100,
+    "angularConeHalfWidth": 80,
+    "angularConeNumber": 81,
+
+    "progPerBeam":false,
+
+    "plotTickFontSize":10
+
+}

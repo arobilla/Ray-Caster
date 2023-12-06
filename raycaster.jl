@@ -3,6 +3,7 @@ include("Construct.jl")
 include("Optics.jl")
 include("Sources.jl")
 
+import JSON
 
 using .Construct
 using Plots
@@ -49,7 +50,7 @@ function plotRays(rayset)
         append!(x, r.x)
         append!(y, r.y)
     end
-    plot!(x, y, legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.5)
+    plot!(x, y, legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.5, tickfontsize=RunParams["plotTickFontSize"])
 end
 
 function plotRaysVector(rayset)
@@ -60,7 +61,7 @@ function plotRaysVector(rayset)
         append!(y, r.y)
     end
     for i = 2:length(x)
-        plot!([x[i-1], x[i]], [y[i-1], y[i]], legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.8, arrow=1, tickfontsize=14)
+        plot!([x[i-1], x[i]], [y[i-1], y[i]], legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.8, arrow=1, tickfontsize=RunParams["plotTickFontSize"])
     end
 end
 
@@ -86,7 +87,7 @@ function plotNormals()
     end
 end
 
-function plotAll(simple=true, pvec=true)
+function plotAll(; simple=true, pvec=true)
     plotSurfaces()
     if !simple
         plotBounds()
@@ -133,7 +134,9 @@ function iterateBeams(startrays, max_iter=100)
     forward_lengths = []
     back_lengths = []
     for b in startrays
-        print(".")
+        if RunParams["progPerBeam"]
+            print(".")
+        end
         n_iter = 0
         global current_ray = b
         push!(rays, current_ray)
@@ -180,25 +183,20 @@ function runSim(theta, r, l)
 
 
 
-    if hdBeamPlots
+    if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
-        plotAll()
-        if !dryRun
-            savefig(pl, "figs/beamPlots/hd/phononReflect$theta.png")
-        end
+        plotAll(simple=true, pvec=false)
+        savefig(pl, "figs/beamPlots/hd/phononReflect$theta.png")
     end
-    if beamPlots
+    if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         #Reset and make low density plots
         beams = beams[1:10:end]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
         plotAll()
-        if !dryRun
-            savefig(pl, "figs/beamPlots/LDphononReflect$theta.png")
-        end
+        savefig(pl, "figs/beamPlots/LDphononReflect$theta.png")
     end
 
     println("-")
-    println("Done")
     return forward_lengths, back_lengths
 
 end
@@ -208,7 +206,7 @@ function runSimAngular(theta, r, l)
     global dom = Domain(Geom.LineSegment[], Geom.LineSegment[])
     global beams = []
     global current_ray = Geom.Ray(-1, 0.5, 0)
-    display("Running theta = $theta")
+    print("Running theta = $theta")
 
     reflect_surfs, bx, by = buildkinkedstandard(theta, r, l)
 
@@ -219,36 +217,32 @@ function runSimAngular(theta, r, l)
 
     append!(dom.surfaces, reflect_surfs)
 
-    startrays = Sources.genSingleBurst(r, bx, by)
+    startrays = Sources.genRaysAngular(r, bx, by)
 
 
     beams, forward_lengths, back_lengths = iterateBeams(startrays)
 
-    if hdBeamPlots
+    if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
-        plotAll()
-        if !dryRun
-            savefig(pl, "figs/beamPlots/hd/phononReflectRadial$theta.png")
-        end
+        plotAll(simple=true, pvec=false)
+        savefig(pl, "figs/beamPlots/hd/phononReflectRadial$theta.png")
     end
-    if beamPlots
+    if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         #Reset and make low density plots
         beams = beams[1:3:end]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
         plotAll()
-        if !dryRun
-            savefig(pl, "figs/beamPlots/LDphononReflectRadial$theta.png")
-        end
+        savefig(pl, "figs/beamPlots/LDphononReflectRadial$theta.png")
     end
 
     println("-")
-    println("Done")
     return forward_lengths, back_lengths
 
 end
 
 function main()
-    global dryRun = true
+    global RunParams = JSON.parsefile("RunParams.json")
+    global dryRun = RunParams["dryRun"]
     if !dryRun
         gr()
         pl = plot()
@@ -257,55 +251,63 @@ function main()
     l_sim = 2
 
 
-    global beamPlots = true
-    global hdBeamPlots = false
+    global beamPlots = RunParams["beamPlots"]
+    global hdBeamPlots = RunParams["hdBeamPlots"]
     println("Creating directories")
     if !dryRun
         println(mkpath("figs/beamPlots/hd"))
     end
-    global plot_ylims = (-1, 8)
-    global plot_xlims = (-1, 8)
+    global plot_ylims = (-0.5, 2 * r_sim + 4 * l_sim * sind(60) + 0.5)
+    global plot_xlims = (-0.55, 6 * l_sim + 0.5)
 
     x = []
     m = []
     frac = []
-    for i in 0:1:75
-        append!(x, i)
-        beamdata = runSim(i, r_sim, l_sim)
-        append!(m, mean(beamdata[1]))
-        append!(frac, length(beamdata[1]) / (length(beamdata[1]) + length(beamdata[2])))
+    if RunParams["runLinearSim"]
+        for i in RunParams["startTheta"]:RunParams["deltaTheta"]:RunParams["endTheta"]
+            append!(x, i)
+            beamdata = runSim(i, r_sim, l_sim)
+            append!(m, mean(beamdata[1]))
+            append!(frac, length(beamdata[1]) / (length(beamdata[1]) + length(beamdata[2])))
+        end
+        #println(length(x), length(m), length(frac))
+        if !dryRun
+            pl = plot(x, m, legend=false, xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter", tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/pathLengthvsAngle.png")
+
+            pl = plot(x, frac, legend=false, xlabel="Angle (degrees)", ylabel="Fraction of Non-Backscattered Beams", tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/backScattervsAngle.png")
+
+            pl = plot(x, m, size=(1000, 800), xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter", label="Path Length", c=:blue,
+                legend=false, y_guidefontcolor=:blue, x_ticks=0:15:75, y_foreground_color_axis=:blue, right_margin=10Plots.mm, tickfontsize=RunParams["plotTickFontSize"])
+            plot!(twinx(), x, frac, label="Non-Backscattered Fraction", ylabel="Fraction of Non-Backscattered Beams", c=:red,
+                legend=false, y_guidefontcolor=:red, x_ticks=0:15:75, y_foreground_color_axis=:red, right_margin=10Plots.mm, tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/dualvsAngle.png")
+        end
     end
-    if !dryRun
-        pl = plot(x, m, legend=false, xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter")
-        savefig(pl, "figs/pathLengthvsAngle.png")
 
-        pl = plot(x, frac, legend=false, xlabel="Angle (degrees)", ylabel="Fraction of Non-Backscattered Beams")
-        savefig(pl, "figs/backScattervsAngle.png")
+    if RunParams["runRadialSim"]
+        for i in RunParams["startTheta"]:RunParams["deltaTheta"]:RunParams["endTheta"]
+            append!(x, i)
+            beamdata = runSimAngular(i, r_sim, l_sim)
+            append!(m, mean(beamdata[1]))
+            append!(frac, length(beamdata[1]) / (length(beamdata[1]) + length(beamdata[2])))
+        end
+        #println(length(x), length(m), length(frac))
+        if !dryRun
+            pl = plot(x, m, legend=false, xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter", tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/pathLengthvsAngleRadial.png")
 
-        pl = plot(x, m, xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter", label="Path Length", c=:blue,
-            legend=false, y_guidefontcolor=:blue, y_foreground_color_axis=:blue, right_margin=10Plots.mm)
-        plot!(twinx(), frac, label="Non-Backscattered Fraction", ylabel="Fraction of Non-Backscattered Beams", c=:red,
-            legend=false, y_guidefontcolor=:red, y_foreground_color_axis=:red, right_margin=10Plots.mm)
-        savefig(pl, "figs/dualvsAngle.png")
+            pl = plot(x, frac, legend=false, xlabel="Angle (degrees)", ylabel="Fraction of Non-Backscattered Beams", tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/backScattervsAngleRadial.png")
+
+            pl = plot(x, m, size=(1000, 800), xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter", label="Path Length", c=:blue,
+                legend=false, y_guidefontcolor=:blue, x_ticks=0:15:75, y_foreground_color_axis=:blue, right_margin=10Plots.mm, tickfontsize=RunParams["plotTickFontSize"])
+            plot!(twinx(), x, frac, label="Non-Backscattered Fraction", ylabel="Fraction of Non-Backscattered Beams", c=:red,
+                legend=false, y_guidefontcolor=:red, x_ticks=0:15:75, y_foreground_color_axis=:red, right_margin=10Plots.mm, tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/dualvsAngleRadial.png")
+        end
     end
-
-    # d30 = runSim(30, 2/3, 2)
-    # d45 = runSim(45, 2/3, 2)
-    # d60 = runSim(60, 2/3, 2)
-    # d15 = runSim(15, 2/3, 2)
-    # pl = plot(size=(500, 500))
-    # bin_range = range(0, 10, 30)
-    # through_style = (3, :dashdot)
-    # back_style = (3, :dot)
-    # stephist!(d15[1], label="15 Degree Through", bins=bin_range, line=through_style, color=:blue)
-    # stephist!(d15[2], label="15 Degree Backscatter", bins=bin_range, line=back_style, color=:blue)
-    # stephist!(d30[1], label="30 Degree Through", bins=bin_range, line=through_style, color=:red)
-    # stephist!(d30[2], label="30 Degree Backscatter", bins=bin_range, line=back_style, color=:red)
-    # stephist!(d45[1], label="45 Degree Through", bins=bin_range, line=through_style, color=:green)
-    # stephist!(d45[2], label="45 Degree Backscatter", bins=bin_range, line=back_style, color=:green)
-    # stephist!(d60[1], label="60 Degree Through", bins=bin_range, line=through_style, color=:purple)
-    # stephist!(d60[2], label="60 Degree Backscatter", bins=bin_range, line=back_style, color=:purple)
-    # savefig(pl, "figs/pathLengthHisto.png")
 end
 
 main()
