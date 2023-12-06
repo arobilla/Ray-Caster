@@ -20,8 +20,6 @@ function checkSystemBoundaries()
 end
 
 
-
-
 function plotSurfaces()
     x=[]
     y=[]
@@ -49,12 +47,30 @@ function plotRays(rayset)
         append!(x, r.x)
         append!(y, r.y)
     end
-    plot!(x,y, legend=false)
+    plot!(x,y, legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.5)
 end
 
-function plotBeams()
+function plotRaysVector(rayset)
+    x = []
+    y = []
+    for r in rayset
+        append!(x, r.x)
+        append!(y, r.y)
+    end
+    for i=2:length(x)
+        plot!([x[i-1], x[i]],[y[i-1], y[i]], legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.8, arrow=1, tickfontsize=14)
+    end
+end
+
+function plotBeams(pvec = true)
+    if pvec
+        for b in beams
+            plotRaysVector(b)
+        end
+    else
     for b in beams
         plotRays(b)
+    end
     end
 end
 
@@ -65,6 +81,17 @@ function plotNormals()
         x2 = x1+0.5*s.vec[2]
         y2 = y1 - 0.5*s.vec[1]
         plot!([x1, x2], [y1,y2], linewidth=0.5, linecolor=:grey)
+    end
+end
+
+function plotAll(simple=true, pvec=true)
+    plotSurfaces()
+    if !simple
+        plotBounds()
+    end
+    plotBeams(pvec)
+    if !simple
+        plotNormals()
     end
 end
     
@@ -103,6 +130,25 @@ function genRays(r, l, bx, by)
     return s
 end
 
+function genRaysAngular(r, l, bx, by)
+    s = []
+    for y in LinRange(by[1]+0.01*r, by[1]+2*r-0.01*r, 5)
+        for t in LinRange(-60, 60, 14)
+            push!(s, Geom.Ray(bx[1] + 0.0001, y, deg2rad(t)))
+        end
+    end
+    return s
+end
+
+function genSingleBurst(r, l, bx, by)
+    s = []
+    y=by[1]+r
+        for t in LinRange(0, 359, 360)
+            push!(s, Geom.Ray(bx[1] + (bx[2]-bx[1])/40, y, deg2rad(t)))
+    end
+    return s
+end
+
 function runSim(theta, r, l)
 
     global dom = Domain(Geom.LineSegment[], Geom.LineSegment[])
@@ -117,7 +163,7 @@ function runSim(theta, r, l)
 
     dx = bx[2] - bx[1]
     dy = by[2] - by[1]
-    buildBounds(bx[1] - 0.001*dx, by[1] - 0.05*dy, bx[2] + 0.001*dx, by[2] + 0.05*dy)
+    buildBounds(bx[1] - 0.05*dx, by[1] - 0.05*dy, bx[2] + 0.05*dx, by[2] + 0.05*dy)
 
     append!(dom.surfaces, reflect_surfs)
 
@@ -151,22 +197,84 @@ function runSim(theta, r, l)
 
 
     if hdBeamPlots
-        pl = plot(size=(500,500), xlims=plot_xlims, ylims = plot_ylims)
-        plotSurfaces()
-        plotBounds()
-        plotBeams()
-        plotNormals()
+        pl = plot(size=(1000,1000), xlims=plot_xlims, ylims = plot_ylims)
+        plotAll()
         savefig(pl, "figs/beamPlots/hd/phononReflect$theta.png")
     end
     if beamPlots
     #Reset and make low density plots
         beams = beams[1:10:end]
-        pl = plot(size=(500,500), xlims=plot_xlims, ylims = plot_ylims)
-        plotSurfaces()
-        plotBounds()
-        plotBeams()
-        plotNormals()
+        pl = plot(size=(1000,1000), xlims=plot_xlims, ylims = plot_ylims)
+        plotAll()
         savefig(pl, "figs/beamPlots/LDphononReflect$theta.png")
+    end
+
+    println("-")
+    println("Done")
+    return forward_lengths, back_lengths
+
+end
+
+function runSimAngular(theta, r, l)
+
+    global dom = Domain(Geom.LineSegment[], Geom.LineSegment[])
+    global beams = []
+    global rays = []
+    global current_ray = Geom.Ray(-1, 0.5, 0)
+    leavebd = false
+    display("Running theta = $theta")
+
+    reflect_surfs, bx, by = buildkinkedstandard(theta, r, l)
+
+
+    dx = bx[2] - bx[1]
+    dy = by[2] - by[1]
+    buildBounds(bx[1] - 0.05*dx, by[1] - 0.05*dy, bx[2] + 0.05*dx, by[2] + 0.05*dy)
+
+    append!(dom.surfaces, reflect_surfs)
+
+    startrays = genSingleBurst(r, l, bx, by)
+
+
+    #println(startrays)
+    forward_lengths = []
+    back_lengths = []
+    for b in startrays
+        print(".")
+        n_iter = 0
+        current_ray = b
+        push!(rays, current_ray)
+        while !leavebd && n_iter < 100
+            # display(current_ray)
+            current_ray = Optics.bumpRay()
+            #push!(rays, current_ray)
+            next_ray, leavebd = Optics.moveRay()
+            #display([next_ray, leavebd])
+            current_ray = next_ray
+            push!(rays, current_ray)
+            n_iter += 1
+        end
+        push!(beams, rays)
+        path_len, exits = pathLength(rays)
+        exits ? push!(forward_lengths, path_len) : push!(back_lengths, path_len)
+        rays = []
+        leavebd=false
+    end
+
+    #plot_xlims = (bx[1], bx[2])
+    #plot_ylims = (by[1], by[2])
+
+    if hdBeamPlots
+        pl = plot(size=(1000,1000), xlims=plot_xlims, ylims = plot_ylims)
+        plotAll()
+        savefig(pl, "figs/beamPlots/hd/phononReflectRadial$theta.png")
+    end
+    if beamPlots
+    #Reset and make low density plots
+        beams = beams[1:3:end]
+        pl = plot(size=(1000,1000), xlims=plot_xlims, ylims = plot_ylims)
+        plotAll()
+        savefig(pl, "figs/beamPlots/LDphononReflectRadial$theta.png")
     end
 
     println("-")
@@ -178,6 +286,8 @@ end
 function main()
     gr()
     pl=plot()
+    r_sim = 2/3
+    l_sim = 2
     global beamPlots = true
     global hdBeamPlots = false
     println("Creating directories")
@@ -190,7 +300,7 @@ function main()
     frac = []
     for i in 0:1:75
         append!(x, i)
-        beamdata = runSim(i, 2/3, 2)
+        beamdata = runSim(i, r_sim, l_sim)
         append!(m, mean(beamdata[1]))
         append!(frac, length(beamdata[1])/(length(beamdata[1])+length(beamdata[2])))
     end
