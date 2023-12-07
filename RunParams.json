@@ -1,25 +1,32 @@
 {
-    "startTheta":0,
+    "startTheta":44,
     "deltaTheta":1,
-    "endTheta":75,
+    "endTheta":45,
 
-    "runLinearSim":false,
-    "runRadialSim":true,
+    "runLinearSim":true,
+    "runRadialSim":false,
+    "runBurstSim":false,
 
     "dryRun":false,
-    "beamPlots":true,
+    "beamPlots":false,
     "hdBeamPlots":true,
 
-    "summaryPlotOnly":true,
+    "summaryPlotOnly":false,
 
-    "linearSourcesNumber":200,
+    "linearSourcesNumber":100,
 
     "angularSourcesNumber": 100,
     "angularConeHalfWidth": 80,
     "angularConeNumber": 81,
 
+    "burstStartAngle":-85,
+    "burstEndAngle":85,
+    "burstRayNumber":35,
+
     "progPerBeam":false,
 
-    "plotTickFontSize":10
+    "plotTickFontSize":12,
+    "plotLabelFontSize":14,
+    "plotVectors": false
 
 }

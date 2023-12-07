@@ -50,7 +50,8 @@ function plotRays(rayset)
         append!(x, r.x)
         append!(y, r.y)
     end
-    plot!(x, y, legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.5, tickfontsize=RunParams["plotTickFontSize"])
+    plot!(x, y, legend=false, linecolor=:firebrick, aspect_ratio=:equal, linestyle=:dot, linealpha=0.75, tickfontsize=RunParams["plotTickFontSize"],
+     labelfontsize=RunParams["plotLabelFontSize"], xlabel='x', ylabel='y')
 end
 
 function plotRaysVector(rayset)
@@ -61,7 +62,8 @@ function plotRaysVector(rayset)
         append!(y, r.y)
     end
     for i = 2:length(x)
-        plot!([x[i-1], x[i]], [y[i-1], y[i]], legend=false, linecolor=:firebrick, linestyle=:dot, linealpha=0.8, arrow=1, tickfontsize=RunParams["plotTickFontSize"])
+        plot!([x[i-1], x[i]], [y[i-1], y[i]], legend=false, aspect_ratio=:equal, linecolor=:firebrick, linestyle=:dot, linealpha=0.75, tickfontsize=RunParams["plotTickFontSize"],
+        labelfontsize=RunParams["plotLabelFontSize"], xlabel='x', ylabel='y', arrow=1)
     end
 end
 
@@ -185,14 +187,14 @@ function runSim(theta, r, l)
 
     if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
-        plotAll(simple=true, pvec=false)
+        plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/hd/phononReflect$theta.png")
     end
     if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         #Reset and make low density plots
         beams = beams[1:10:end]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
-        plotAll()
+        plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/LDphononReflect$theta.png")
     end
 
@@ -224,15 +226,54 @@ function runSimAngular(theta, r, l)
 
     if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
-        plotAll(simple=true, pvec=false)
+        plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/hd/phononReflectRadial$theta.png")
+    end
+    if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
+        #Reset and make low density plots
+        beams = beams[1:30:end]
+        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        plotAll(simple=true, pvec=RunParams["plotVectors"])
+        savefig(pl, "figs/beamPlots/LDphononReflectRadial$theta.png")
+    end
+
+    println("-")
+    return forward_lengths, back_lengths
+
+end
+
+function runSimBurst(theta, r, l)
+
+    global dom = Domain(Geom.LineSegment[], Geom.LineSegment[])
+    global beams = []
+    global current_ray = Geom.Ray(-1, 0.5, 0)
+    print("Running theta = $theta")
+
+    reflect_surfs, bx, by = buildkinkedstandard(theta, r, l)
+
+
+    dx = bx[2] - bx[1]
+    dy = by[2] - by[1]
+    buildBounds(bx[1] - 0.05 * dx, by[1] - 0.05 * dy, bx[2] + 0.05 * dx, by[2] + 0.05 * dy)
+
+    append!(dom.surfaces, reflect_surfs)
+
+    startrays = Sources.genSingleBurst(r, bx, by)
+
+
+    beams, forward_lengths, back_lengths = iterateBeams(startrays)
+
+    if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
+        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        plotAll(simple=true, pvec=RunParams["plotVectors"])
+        savefig(pl, "figs/beamPlots/hd/phononReflectBurst$theta.png")
     end
     if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         #Reset and make low density plots
         beams = beams[1:3:end]
         pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
-        plotAll()
-        savefig(pl, "figs/beamPlots/LDphononReflectRadial$theta.png")
+        plotAll(simple=true, pvec=RunParams["plotVectors"])
+        savefig(pl, "figs/beamPlots/LDphononReflectBurst$theta.png")
     end
 
     println("-")
@@ -257,8 +298,8 @@ function main()
     if !dryRun
         println(mkpath("figs/beamPlots/hd"))
     end
-    global plot_ylims = (-0.5, 2 * r_sim + 4 * l_sim * sind(60) + 0.5)
-    global plot_xlims = (-0.55, 6 * l_sim + 0.5)
+    global plot_ylims = (-0.25, 2 * r_sim + 2.1 * l_sim * sind(60) + 0.5)
+    global plot_xlims = (-0.25, 6 * l_sim + 0.5)
 
     x = []
     m = []
@@ -306,6 +347,29 @@ function main()
             plot!(twinx(), x, frac, label="Non-Backscattered Fraction", ylabel="Fraction of Non-Backscattered Beams", c=:red,
                 legend=false, y_guidefontcolor=:red, x_ticks=0:15:75, y_foreground_color_axis=:red, right_margin=10Plots.mm, tickfontsize=RunParams["plotTickFontSize"])
             savefig(pl, "figs/dualvsAngleRadial.png")
+        end
+    end
+
+    if RunParams["runBurstSim"]
+        for i in RunParams["startTheta"]:RunParams["deltaTheta"]:RunParams["endTheta"]
+            append!(x, i)
+            beamdata = runSimBurst(i, r_sim, l_sim)
+            append!(m, mean(beamdata[1]))
+            append!(frac, length(beamdata[1]) / (length(beamdata[1]) + length(beamdata[2])))
+        end
+        #println(length(x), length(m), length(frac))
+        if !dryRun
+            pl = plot(x, m, legend=false, xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter", tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/pathLengthvsAngleBurst.png")
+
+            pl = plot(x, frac, legend=false, xlabel="Angle (degrees)", ylabel="Fraction of Non-Backscattered Beams", tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/backScattervsAngleBurst.png")
+
+            pl = plot(x, m, size=(1000, 800), xlabel="Angle (degrees)", ylabel="Mean Path Length, No Backscatter", label="Path Length", c=:blue,
+                legend=false, y_guidefontcolor=:blue, x_ticks=0:15:75, y_foreground_color_axis=:blue, right_margin=10Plots.mm, tickfontsize=RunParams["plotTickFontSize"])
+            plot!(twinx(), x, frac, label="Non-Backscattered Fraction", ylabel="Fraction of Non-Backscattered Beams", c=:red,
+                legend=false, y_guidefontcolor=:red, x_ticks=0:15:75, y_foreground_color_axis=:red, right_margin=10Plots.mm, tickfontsize=RunParams["plotTickFontSize"])
+            savefig(pl, "figs/dualvsAngleBurst.png")
         end
     end
 end

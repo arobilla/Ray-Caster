@@ -39,13 +39,13 @@ end
 """
     genSingleBurst(r, l, bx, by)
 
-Generates a single, radial burst, spanning 360 degrees, slightly inside the left border of the system, at a height y. 
+Generates a single, radial burst, spanning a specified range of angles, slightly inside the left border of the system, right in the middle axis of the wire entry. 
 Takes the wire radius as an argument and the boundaries of the system
 """
 function genSingleBurst(r, bx, by)
     s = []
     y = by[1] + r
-    for t in LinRange(0, 359, 360)
+    for t in LinRange(Main.RunParams["burstStartAngle"], Main.RunParams["burstEndAngle"], Main.RunParams["burstRayNumber"])
         push!(s, Geom.Ray(bx[1] + (bx[2] - bx[1]) / 40, y, deg2rad(t)))
     end
     return s
