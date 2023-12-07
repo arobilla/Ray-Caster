@@ -1,11 +1,11 @@
 {
-    "startTheta":44,
-    "deltaTheta":1,
+    "startTheta":0,
+    "deltaTheta":15,
     "endTheta":45,
 
-    "runLinearSim":true,
+    "runLinearSim":false,
     "runRadialSim":false,
-    "runBurstSim":false,
+    "runBurstSim":true,
 
     "dryRun":false,
     "beamPlots":false,
@@ -13,7 +13,7 @@
 
     "summaryPlotOnly":false,
 
-    "linearSourcesNumber":100,
+    "linearSourcesNumber":200,
 
     "angularSourcesNumber": 100,
     "angularConeHalfWidth": 80,
@@ -27,6 +27,7 @@
 
     "plotTickFontSize":12,
     "plotLabelFontSize":14,
-    "plotVectors": false
+    "plotVectors": false,
+    "plotDPI":300
 
 }

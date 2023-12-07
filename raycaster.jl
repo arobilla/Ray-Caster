@@ -50,7 +50,7 @@ function plotRays(rayset)
         append!(x, r.x)
         append!(y, r.y)
     end
-    plot!(x, y, legend=false, linecolor=:firebrick, aspect_ratio=:equal, linestyle=:dot, linealpha=0.75, tickfontsize=RunParams["plotTickFontSize"],
+    plot!(x, y, legend=false, linecolor=:firebrick, aspect_ratio=:equal, linestyle=:dot, linealpha=0.55, tickfontsize=RunParams["plotTickFontSize"],
      labelfontsize=RunParams["plotLabelFontSize"], xlabel='x', ylabel='y')
 end
 
@@ -186,14 +186,14 @@ function runSim(theta, r, l)
 
 
     if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
-        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        pl = plot(dpi=RunParams["plotDPI"], xlims=plot_xlims, ylims=plot_ylims, thickness_scaling=0.8)
         plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/hd/phononReflect$theta.png")
     end
     if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         #Reset and make low density plots
         beams = beams[1:10:end]
-        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        pl = plot(dpi=RunParams["plotDPI"], xlims=plot_xlims, ylims=plot_ylims)
         plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/LDphononReflect$theta.png")
     end
@@ -225,14 +225,14 @@ function runSimAngular(theta, r, l)
     beams, forward_lengths, back_lengths = iterateBeams(startrays)
 
     if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
-        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        pl = plot(dpi=RunParams["plotDPI"], xlims=plot_xlims, ylims=plot_ylims)
         plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/hd/phononReflectRadial$theta.png")
     end
     if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         #Reset and make low density plots
         beams = beams[1:30:end]
-        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        pl = plot(dpi=RunParams["plotDPI"], xlims=plot_xlims, ylims=plot_ylims)
         plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/LDphononReflectRadial$theta.png")
     end
@@ -264,14 +264,14 @@ function runSimBurst(theta, r, l)
     beams, forward_lengths, back_lengths = iterateBeams(startrays)
 
     if RunParams["hdBeamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
-        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        pl = plot(dpi=RunParams["plotDPI"], xlims=plot_xlims, ylims=plot_ylims)
         plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/hd/phononReflectBurst$theta.png")
     end
     if RunParams["beamPlots"] && !dryRun && !RunParams["summaryPlotOnly"]
         #Reset and make low density plots
         beams = beams[1:3:end]
-        pl = plot(size=(1000, 1000), xlims=plot_xlims, ylims=plot_ylims)
+        pl = plot(dpi=RunParams["plotDPI"]  , xlims=plot_xlims, ylims=plot_ylims)
         plotAll(simple=true, pvec=RunParams["plotVectors"])
         savefig(pl, "figs/beamPlots/LDphononReflectBurst$theta.png")
     end
